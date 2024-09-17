@@ -68,3 +68,5 @@ ADD_SCENE(nfc, slix_unlock, SlixUnlock)
 ADD_SCENE(nfc, slix_unlock_success, SlixUnlockSuccess)
 
 ADD_SCENE(nfc, generate_info, GenerateInfo)
+
+ADD_SCENE(nfc, mf_classic_setup_reader, MfClassicSetupReader)

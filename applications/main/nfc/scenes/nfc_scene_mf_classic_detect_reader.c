@@ -47,18 +47,12 @@ void nfc_scene_mf_classic_detect_reader_on_enter(void* context) {
     NfcApp* instance = context;
 
     if(nfc_device_get_protocol(instance->nfc_device) == NfcProtocolInvalid) {
-        Iso14443_3aData iso3_data = {
-            .uid_len = 7,
-            .uid = {0},
-            .atqa = {0x44, 0x00},
-            .sak = 0x08,
-        };
-        iso3_data.uid[0] = NXP_MANUFACTURER_ID;
-        furi_hal_random_fill_buf(&iso3_data.uid[1], iso3_data.uid_len - 1);
+        const Iso14443_3aData* iso3_data = nfc_device_get_data(instance->nfc_device, NfcProtocolIso14443_3a);
+
         MfClassicData* mfc_data = mf_classic_alloc();
 
         mfc_data->type = MfClassicType4k;
-        iso14443_3a_copy(mfc_data->iso14443_3a_data, &iso3_data);
+        iso14443_3a_copy(mfc_data->iso14443_3a_data, iso3_data);
         nfc_device_set_data(instance->nfc_device, NfcProtocolMfClassic, mfc_data);
 
         mf_classic_free(mfc_data);
@@ -67,6 +61,8 @@ void nfc_scene_mf_classic_detect_reader_on_enter(void* context) {
     const Iso14443_3aData* iso3_data =
         nfc_device_get_data(instance->nfc_device, NfcProtocolIso14443_3a);
     uint32_t cuid = iso14443_3a_get_cuid(iso3_data);
+
+    detect_reader_set_uid(instance->detect_reader, iso3_data->uid, iso3_data->uid_len);
 
     instance->mfkey32_logger = mfkey32_logger_alloc(cuid);
     instance->timer =

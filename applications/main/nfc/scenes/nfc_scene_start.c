@@ -64,7 +64,7 @@ bool nfc_scene_start_on_event(void* context, SceneManagerEvent event) {
         } else if(event.event == SubmenuIndexDetectReader) {
             scene_manager_set_scene_state(
                 nfc->scene_manager, NfcSceneStart, SubmenuIndexDetectReader);
-            scene_manager_next_scene(nfc->scene_manager, NfcSceneMfClassicDetectReader);
+            scene_manager_next_scene(nfc->scene_manager, NfcSceneMfClassicSetupReader);
             consumed = true;
         } else if(event.event == SubmenuIndexSaved) {
             // Save the scene state explicitly in each branch, so that

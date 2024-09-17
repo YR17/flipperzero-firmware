@@ -177,7 +177,7 @@ void detect_reader_set_state(DetectReader* detect_reader, DetectReaderState stat
         detect_reader->view, DetectReaderViewModel * model, { model->state = state; }, true);
 }
 
-void detect_reader_set_uid(DetectReader* detect_reader, uint8_t* uid, uint8_t uid_len) {
+void detect_reader_set_uid(DetectReader* detect_reader, const uint8_t* uid, uint8_t uid_len) {
     furi_assert(detect_reader);
     furi_assert(uid);
     furi_assert(uid_len < DETECT_READER_UID_MAX_LEN);

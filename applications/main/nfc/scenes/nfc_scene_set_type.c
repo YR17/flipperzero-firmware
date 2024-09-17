@@ -8,6 +8,11 @@ enum SubmenuIndex {
     SubmenuIndexNFCA7,
 };
 
+static bool forMfSetup(NfcApp* instance)
+{
+    return scene_manager_has_previous_scene(instance->scene_manager, NfcSceneMfClassicSetupReader);
+}
+
 static void nfc_scene_set_type_init_edit_data(Iso14443_3aData* data, size_t uid_len) {
     // Easiest way to create a zero'd buffer of given length
     uint8_t* uid = calloc(1, uid_len);
@@ -18,7 +23,11 @@ static void nfc_scene_set_type_init_edit_data(Iso14443_3aData* data, size_t uid_
 void nfc_scene_set_type_on_enter(void* context) {
     NfcApp* instance = context;
 
+    bool forMfDetect = forMfSetup(instance);
+
     Submenu* submenu = instance->submenu;
+    if (!forMfDetect)
+    {
     submenu_add_item(
         submenu,
         "NFC-A 7-bytes UID",
@@ -31,6 +40,7 @@ void nfc_scene_set_type_on_enter(void* context) {
         SubmenuIndexNFCA4,
         nfc_protocol_support_common_submenu_callback,
         instance);
+    }
 
     FuriString* str = furi_string_alloc();
     for(size_t i = 0; i < NfcDataGeneratorTypeNum; i++) {
@@ -53,21 +63,28 @@ void nfc_scene_set_type_on_enter(void* context) {
 bool nfc_scene_set_type_on_event(void* context, SceneManagerEvent event) {
     NfcApp* instance = context;
     bool consumed = false;
+    bool forMfDetect = forMfSetup(instance);
 
     if(event.type == SceneManagerEventTypeCustom) {
-        if(event.event == SubmenuIndexNFCA7) {
+        if(event.event == SubmenuIndexNFCA7 && !forMfDetect) {
             nfc_scene_set_type_init_edit_data(instance->iso14443_3a_edit_data, 7);
             scene_manager_next_scene(instance->scene_manager, NfcSceneSetSak);
             consumed = true;
-        } else if(event.event == SubmenuIndexNFCA4) {
+        } else if(event.event == SubmenuIndexNFCA4 && !forMfDetect) {
             nfc_scene_set_type_init_edit_data(instance->iso14443_3a_edit_data, 4);
             scene_manager_next_scene(instance->scene_manager, NfcSceneSetSak);
             consumed = true;
         } else {
             nfc_data_generator_fill_data(event.event, instance->nfc_device);
-            scene_manager_set_scene_state(
-                instance->scene_manager, NfcSceneGenerateInfo, event.event);
-            scene_manager_next_scene(instance->scene_manager, NfcSceneGenerateInfo);
+            if (!forMfDetect)
+            {
+                scene_manager_set_scene_state(
+                    instance->scene_manager, NfcSceneGenerateInfo, event.event);
+                scene_manager_next_scene(instance->scene_manager, NfcSceneGenerateInfo);
+            } else
+            {
+                scene_manager_next_scene(instance->scene_manager, NfcSceneSetUid);
+            }
             consumed = true;
         }
     }

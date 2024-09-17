@@ -32,7 +32,12 @@ bool nfc_scene_set_uid_on_event(void* context, SceneManagerEvent event) {
             size_t uid_len = 0;
             nfc_device_get_uid(instance->nfc_device, &uid_len);
             nfc_device_set_uid(instance->nfc_device, instance->byte_input_store, uid_len);
-            if(scene_manager_has_previous_scene(instance->scene_manager, NfcSceneSavedMenu)) {
+            if(scene_manager_has_previous_scene(instance->scene_manager, NfcSceneMfClassicSetupReader))
+            {
+                scene_manager_next_scene(instance->scene_manager, NfcSceneMfClassicDetectReader);
+                    consumed = true;
+            }
+            else if(scene_manager_has_previous_scene(instance->scene_manager, NfcSceneSavedMenu)) {
                 if(nfc_save(instance)) {
                     scene_manager_next_scene(instance->scene_manager, NfcSceneSaveSuccess);
                     consumed = true;

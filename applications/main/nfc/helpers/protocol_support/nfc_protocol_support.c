@@ -626,14 +626,14 @@ static bool
     if(event.type == SceneManagerEventTypeCustom) {
         if(event.event == NfcCustomEventListenerUpdate) {
             // Add data button to widget if data is received for the first time
-            if(furi_string_size(instance->text_box_store)) {
-                widget_add_button_element(
-                    instance->widget,
-                    GuiButtonTypeCenter,
-                    "Log",
-                    nfc_protocol_support_common_widget_callback,
-                    instance);
-            }
+//            if(furi_string_size(instance->text_box_store)) {
+            widget_add_button_element(
+                instance->widget,
+                GuiButtonTypeCenter,
+                "Log",
+                nfc_protocol_support_common_widget_callback,
+                instance);
+//            }
             // Update TextBox data
             text_box_set_text(instance->text_box, furi_string_get_cstr(instance->text_box_store));
             consumed = true;

@@ -12,6 +12,16 @@
 
 #define MF_CLASSIC_MAX_BUFF_SIZE (64)
 
+static void printBuffer(const char* predicate, BitBuffer* buf) {
+    FuriString* string = furi_string_alloc();
+    furi_string_cat_printf(string, predicate);
+    for(size_t i = 0; i < bit_buffer_get_size_bytes(buf); i++) {
+        furi_string_cat_printf(string, " %02X", bit_buffer_get_byte(buf, i));
+    }
+    FURI_LOG_T(TAG, "%s", furi_string_get_cstr(string));
+    furi_string_free(string);
+}
+
 typedef MfClassicListenerCommand (
     *MfClassicListenerCommandHandler)(MfClassicListener* instance, BitBuffer* buf);
 
@@ -193,7 +203,10 @@ static MfClassicListenerCommand
     MfClassicAuthContext* auth_ctx = &instance->auth_context;
 
     do {
-        if(instance->state != MfClassicListenerStateAuthComplete) break;
+        if(instance->state != MfClassicListenerStateAuthComplete) {
+            FURI_LOG_E(TAG, "state != MfClassicListenerStateAuthComplete");
+            break;
+        }
 
         uint8_t block_num = bit_buffer_get_byte(buff, 1);
         uint8_t sector_num = mf_classic_get_sector_by_block(block_num);
@@ -202,7 +215,7 @@ static MfClassicListenerCommand
 
         MfClassicBlock access_block = instance->data->block[block_num];
 
-        if(mf_classic_is_sector_trailer(block_num)) {
+/*        if(mf_classic_is_sector_trailer(block_num)) {
             MfClassicSectorTrailer* access_sec_tr = (MfClassicSectorTrailer*)&access_block;
             if(!mf_classic_is_allowed_access(
                    instance->data, block_num, auth_ctx->key_type, MfClassicActionKeyARead)) {
@@ -216,16 +229,23 @@ static MfClassicListenerCommand
                    instance->data, block_num, auth_ctx->key_type, MfClassicActionACRead)) {
                 memset(access_sec_tr->access_bits.data, 0, sizeof(MfClassicAccessBits));
             }
-        } else if(!mf_classic_is_allowed_access(
+        } else */if(!mf_classic_is_allowed_access(
                       instance->data, block_num, auth_ctx->key_type, MfClassicActionDataRead)) {
+            FURI_LOG_E(TAG, "!mf_classic_is_allowed_access");
             break;
         }
 
         bit_buffer_copy_bytes(
             instance->tx_plain_buffer, access_block.data, sizeof(MfClassicBlock));
+        if(mf_classic_is_sector_trailer(block_num)) {
+            for (int i = 0; i < MF_CLASSIC_KEY_SIZE; ++i)
+                bit_buffer_set_byte(instance->tx_plain_buffer, i, 0x00);
+        }
         iso14443_crc_append(Iso14443CrcTypeA, instance->tx_plain_buffer);
+        printBuffer("T:", instance->tx_plain_buffer);
         crypto1_encrypt(
             instance->crypto, NULL, instance->tx_plain_buffer, instance->tx_encrypted_buffer);
+        printBuffer("TE:", instance->tx_encrypted_buffer);
         iso14443_3a_listener_tx_with_custom_parity(
             instance->iso14443_3a_listener, instance->tx_encrypted_buffer);
         command = MfClassicListenerCommandProcessed;
@@ -564,6 +584,7 @@ NfcCommand mf_classic_listener_run(NfcGenericEvent event, void* context) {
     if(iso3_event->type == Iso14443_3aListenerEventTypeFieldOff) {
         mf_classic_listener_reset_state(instance);
         command = NfcCommandSleep;
+        FURI_LOG_T(TAG, "FieldOff");
     } else if(
         (iso3_event->type == Iso14443_3aListenerEventTypeReceivedData) ||
         (iso3_event->type == Iso14443_3aListenerEventTypeReceivedStandardFrame)) {
@@ -581,6 +602,8 @@ NfcCommand mf_classic_listener_run(NfcGenericEvent event, void* context) {
         } else {
             rx_buffer_plain = iso3_event->data->buffer;
         }
+
+        printBuffer("R:", rx_buffer_plain);
 
         MfClassicListenerCommand mfc_command = MfClassicListenerCommandNack;
         if(instance->cmd_in_progress) {
@@ -624,9 +647,11 @@ NfcCommand mf_classic_listener_run(NfcGenericEvent event, void* context) {
             command = NfcCommandSleep;
         }
     } else if(iso3_event->type == Iso14443_3aListenerEventTypeHalted) {
+        FURI_LOG_T(TAG, "Halted");
         mf_classic_listener_reset_state(instance);
     }
 
+    FURI_LOG_T(TAG, "command: %u", command);
     return command;
 }
 

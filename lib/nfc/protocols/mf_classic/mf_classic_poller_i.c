@@ -7,8 +7,19 @@
 
 #define TAG "MfCLassicPoller"
 
+static void printBuffer(const char* predicate, BitBuffer* buf) {
+    FuriString* string = furi_string_alloc();
+    furi_string_cat_printf(string, predicate);
+    for(size_t i = 0; i < bit_buffer_get_size_bytes(buf); i++) {
+        furi_string_cat_printf(string, " %02X", bit_buffer_get_byte(buf, i));
+    }
+    FURI_LOG_T(TAG, "%s", furi_string_get_cstr(string));
+    furi_string_free(string);
+}
+
 MfClassicError mf_classic_process_error(Iso14443_3aError error) {
     MfClassicError ret = MfClassicErrorNone;
+    FURI_LOG_I(TAG, "mf_classic_process_error: %u", error);
 
     switch(error) {
     case Iso14443_3aErrorNone:
@@ -144,6 +155,7 @@ static MfClassicError mf_classic_poller_auth_common(
             nr.data,
             instance->tx_encrypted_buffer,
             is_nested);
+        log
         error = iso14443_3a_poller_txrx_custom_parity(
             instance->iso14443_3a_poller,
             instance->tx_encrypted_buffer,
@@ -262,8 +274,11 @@ MfClassicError mf_classic_poller_read_block(
             break;
         }
 
+        printBuffer("RE: ", instance->rx_encrypted_buffer);
+
         crypto1_decrypt(
             instance->crypto, instance->rx_encrypted_buffer, instance->rx_plain_buffer);
+        printBuffer("R ", instance->rx_plain_buffer);
 
         if(!iso14443_crc_check(Iso14443CrcTypeA, instance->rx_plain_buffer)) {
             FURI_LOG_D(TAG, "CRC error");

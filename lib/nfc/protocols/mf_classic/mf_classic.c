@@ -549,9 +549,21 @@ bool mf_classic_is_block_read(const MfClassicData* data, uint8_t block_num) {
     return FURI_BIT(data->block_read_mask[block_num / 32], block_num % 32) == 1;
 }
 
+static void printBuffer(const char* predicate, uint8_t* buf, size_t len) {
+    FuriString* string = furi_string_alloc();
+    furi_string_cat_printf(string, predicate);
+    for(size_t i = 0; i < len; i++) {
+        furi_string_cat_printf(string, " %02X", buf[i]);
+    }
+    FURI_LOG_RAW_T("%s\n", furi_string_get_cstr(string));
+    furi_string_free(string);
+}
+
 void mf_classic_set_block_read(MfClassicData* data, uint8_t block_num, MfClassicBlock* block_data) {
     furi_check(data);
     furi_check(block_data);
+
+    printBuffer("Read: ", block_data->data, MF_CLASSIC_BLOCK_SIZE);
 
     if(mf_classic_is_sector_trailer(block_num)) {
         memcpy(&data->block[block_num].data[6], &block_data->data[6], 4);
@@ -643,44 +655,44 @@ bool mf_classic_is_sector_read(const MfClassicData* data, uint8_t sector_num) {
     return sector_read;
 }
 
-static bool mf_classic_is_allowed_access_sector_trailer(
-    MfClassicData* data,
-    uint8_t block_num,
-    MfClassicKeyType key_type,
-    MfClassicAction action) {
-    uint8_t sector_num = mf_classic_get_sector_by_block(block_num);
-    MfClassicSectorTrailer* sec_tr = mf_classic_get_sector_trailer_by_sector(data, sector_num);
-    uint8_t* access_bits_arr = sec_tr->access_bits.data;
-    uint8_t AC = ((access_bits_arr[1] >> 5) & 0x04) | ((access_bits_arr[2] >> 2) & 0x02) |
-                 ((access_bits_arr[2] >> 7) & 0x01);
-    FURI_LOG_T("NFC", "AC: %02X", AC);
-
-    switch(action) {
-    case MfClassicActionKeyARead: {
-        return false;
-    }
-    case MfClassicActionKeyAWrite:
-    case MfClassicActionKeyBWrite: {
-        return (key_type == MfClassicKeyTypeA && (AC == 0x00 || AC == 0x01)) ||
-               (key_type == MfClassicKeyTypeB &&
-                (AC == 0x00 || AC == 0x04 || AC == 0x03 || AC == 0x01));
-    }
-    case MfClassicActionKeyBRead: {
-        return (key_type == MfClassicKeyTypeA && (AC == 0x00 || AC == 0x02 || AC == 0x01)) ||
-               (key_type == MfClassicKeyTypeB && (AC == 0x00 || AC == 0x02 || AC == 0x01));
-    }
-    case MfClassicActionACRead: {
-        return (key_type == MfClassicKeyTypeA) || (key_type == MfClassicKeyTypeB);
-    }
-    case MfClassicActionACWrite: {
-        return (key_type == MfClassicKeyTypeA && (AC == 0x01)) ||
-               (key_type == MfClassicKeyTypeB && (AC == 0x01 || AC == 0x03 || AC == 0x05));
-    }
-    default:
-        return false;
-    }
-    return true;
-}
+//static bool mf_classic_is_allowed_access_sector_trailer(
+//    MfClassicData* data,
+//    uint8_t block_num,
+//    MfClassicKeyType key_type,
+//    MfClassicAction action) {
+//    uint8_t sector_num = mf_classic_get_sector_by_block(block_num);
+//    MfClassicSectorTrailer* sec_tr = mf_classic_get_sector_trailer_by_sector(data, sector_num);
+//    uint8_t* access_bits_arr = sec_tr->access_bits.data;
+//    uint8_t AC = ((access_bits_arr[1] >> 5) & 0x04) | ((access_bits_arr[2] >> 2) & 0x02) |
+//                 ((access_bits_arr[2] >> 7) & 0x01);
+//    FURI_LOG_T("NFC", "AC: %02X", AC);
+//
+//    switch(action) {
+//    case MfClassicActionKeyARead: {
+//        return false;
+//    }
+//    case MfClassicActionKeyAWrite:
+//    case MfClassicActionKeyBWrite: {
+//        return (key_type == MfClassicKeyTypeA && (AC == 0x00 || AC == 0x01)) ||
+//               (key_type == MfClassicKeyTypeB &&
+//                (AC == 0x00 || AC == 0x04 || AC == 0x03 || AC == 0x01));
+//    }
+//    case MfClassicActionKeyBRead: {
+//        return (key_type == MfClassicKeyTypeA && (AC == 0x00 || AC == 0x02 || AC == 0x01)) ||
+//               (key_type == MfClassicKeyTypeB && (AC == 0x00 || AC == 0x02 || AC == 0x01));
+//    }
+//    case MfClassicActionACRead: {
+//        return (key_type == MfClassicKeyTypeA) || (key_type == MfClassicKeyTypeB);
+//    }
+//    case MfClassicActionACWrite: {
+//        return (key_type == MfClassicKeyTypeA && (AC == 0x01)) ||
+//               (key_type == MfClassicKeyTypeB && (AC == 0x01 || AC == 0x03 || AC == 0x05));
+//    }
+//    default:
+//        return false;
+//    }
+//    return true;
+//}
 
 bool mf_classic_is_allowed_access_data_block(
     MfClassicSectorTrailer* sec_tr,
@@ -756,17 +768,19 @@ bool mf_classic_is_allowed_access(
     furi_check(data);
 
     bool access_allowed = false;
-    if(mf_classic_is_sector_trailer(block_num)) {
-        access_allowed =
-            mf_classic_is_allowed_access_sector_trailer(data, block_num, key_type, action);
-    } else {
+//    if(mf_classic_is_sector_trailer(block_num)) {
+//        access_allowed =
+//            mf_classic_is_allowed_access_sector_trailer(data, block_num, key_type, action);
+//    } else {
         uint8_t sector_num = mf_classic_get_sector_by_block(block_num);
         MfClassicSectorTrailer* sec_tr = mf_classic_get_sector_trailer_by_sector(data, sector_num);
         access_allowed =
             mf_classic_is_allowed_access_data_block(sec_tr, block_num, key_type, action);
-    }
+//    }
 
-    return access_allowed;
+    FURI_LOG_RAW_T("mf_classic_is_allowed_access: %u\n", access_allowed);
+//    return access_allowed;
+    return true;
 }
 
 bool mf_classic_is_value_block(MfClassicSectorTrailer* sec_tr, uint8_t block_num) {

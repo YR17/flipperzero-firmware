@@ -490,6 +490,7 @@ NfcCommand mf_classic_poller_handler_request_read_sector_blocks(MfClassicPoller*
                     instance, sec_read_ctx->current_block, &read_block);
             }
         } else {
+            FURI_LOG_D(TAG, "Failed to read block %d, error: %u", sec_read_ctx->current_block, error);
             mf_classic_poller_halt(instance);
             sec_read_ctx->auth_passed = false;
         }
